@@ -1,0 +1,17 @@
+# Node
+node_modules/
+
+# Python
+venv/
+ai-engine/venv/
+
+# Environment variables
+.env
+
+# Build folders
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
