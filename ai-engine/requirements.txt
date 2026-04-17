@@ -1,0 +1,12 @@
+flask
+flask-cors
+sentence-transformers
+torch
+numpy
+pandas
+scikit-learn
+PyPDF2
+python-docx
+nltk
+regex
+joblib
