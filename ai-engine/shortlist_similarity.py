@@ -1,37 +1,33 @@
 """
-Recruiter shortlist: sort candidates by SBERT similarity between job (title+desc) and candidate profile text.
+Lightweight shortlist using TF-IDF similarity (NO SBERT).
 """
-import torch
-from sentence_transformers import SentenceTransformer, util
-from config import MODEL_NAME, DEVICE
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-_model = None
-
-
-def _get_model():
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(MODEL_NAME, device=DEVICE)
-    return _model
+vectorizer = TfidfVectorizer(max_features=3000)
 
 
 def shortlist_by_similarity(job_title, job_description, candidates):
-    """
-    candidates: list of dicts with "application_id" and "profile_text".
-    Returns list of dicts { application_id, score } sorted by score descending.
-    """
     if not candidates:
         return []
-    job_text = (job_title or "") + " " + (job_description or "")
-    job_text = job_text.strip() or " "
-    model = _get_model()
-    job_emb = model.encode([job_text], convert_to_tensor=True)
+
+    job_text = ((job_title or "") + " " + (job_description or "")).strip() or " "
     profile_texts = [c.get("profile_text") or " " for c in candidates]
-    profile_embs = model.encode(profile_texts, convert_to_tensor=True)
-    scores = util.cos_sim(job_emb, profile_embs)[0]
-    out = []
+
+    texts = [job_text] + profile_texts
+
+    try:
+        tfidf_matrix = vectorizer.fit_transform(texts)
+        scores = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:])[0]
+    except Exception:
+        scores = [0] * len(profile_texts)
+
+    results = []
     for i, c in enumerate(candidates):
-        sc = float(scores[i].cpu().numpy())
-        out.append({"application_id": c.get("application_id"), "score": round(sc * 100, 2)})
-    out.sort(key=lambda x: x["score"], reverse=True)
-    return out
+        results.append({
+            "application_id": c.get("application_id"),
+            "score": round(float(scores[i]) * 100, 2)
+        })
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    return results
