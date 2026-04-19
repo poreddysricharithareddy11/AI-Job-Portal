@@ -1,20 +1,18 @@
 """
 Lightweight matching: TF-IDF + rule-based only (NO SBERT).
-Optimized for low memory environments like Render free tier.
 """
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import re
-import numpy as np
 from preprocessing import preprocess_for_similarity
 from rule_extraction import extract_all, extract_required_skills_from_jd
 
-# TF-IDF vectorizer (lightweight)
 tfidf_vectorizer = TfidfVectorizer(
     max_features=3000,
     analyzer="char_wb",
     ngram_range=(3, 5),
 )
+
 
 def detect_experience_level(text):
     text = (text or "").lower()
@@ -65,7 +63,7 @@ def calculate_similarity(resume_text, job_desc, job_title="", job_id=None):
     resume_clean = preprocess_for_similarity(resume_text) or " "
     jd_clean = preprocess_for_similarity(job_desc) or " "
 
-    # TF-IDF similarity
+    # TF-IDF
     try:
         tfidf_matrix = tfidf_vectorizer.fit_transform([resume_clean, jd_clean])
         tfidf_score = float(cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0])
@@ -74,7 +72,7 @@ def calculate_similarity(resume_text, job_desc, job_title="", job_id=None):
 
     tfidf_norm = max(0, min(1, tfidf_score))
 
-    # Rule-based scoring
+    # Rule-based
     resume_extracted = extract_all(resume_text)
     jd_extracted = extract_all(job_desc)
 
@@ -84,14 +82,12 @@ def calculate_similarity(resume_text, job_desc, job_title="", job_id=None):
     rule_score, missing_skills, matched_skills = rule_based_match_score(resume_extracted, jd_extracted)
     rule_norm = max(0, min(1, rule_score))
 
-    # Final score (no SBERT)
     final_raw = 0.6 * tfidf_norm + 0.4 * rule_norm
 
     experience_level = detect_experience_level(resume_text)
 
     if experience_level == "Junior":
-        senior_roles = ["senior", "lead", "manager", "director", "head"]
-        if any(role in (job_title or "").lower() for role in senior_roles):
+        if any(role in (job_title or "").lower() for role in ["senior", "lead", "manager"]):
             final_raw -= 0.15
 
     final_percentage = round(max(0, min(100, final_raw * 100)), 2)
@@ -116,5 +112,5 @@ def infer_top_roles(score):
     if score >= 80:
         return ["Top Match", "Highly Qualified"]
     if score >= 50:
-        return ["Potential Match", "Skills Alignment"]
-    return ["Low Match", "Learning Path"]
+        return ["Potential Match"]
+    return ["Low Match"]
